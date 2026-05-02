@@ -1,0 +1,958 @@
+version 17.12
+service nagle
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec show-timezone
+service timestamps log datetime localtime show-timezone
+service password-encryption
+service compress-config
+service sequence-numbers
+no service dhcp
+service call-home
+platform qfp utilization monitor load 80
+no platform punt-keepalive disable-kernel-core
+!
+hostname es4enxrtr001
+!
+boot-start-marker
+boot system bootflash:packages.conf
+boot-end-marker
+!
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+vrf definition vrf-enx-edge
+ rd 65506:280
+ !
+ address-family ipv4
+  snmp context vrf-enx-edge
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+no logging queue-limit
+logging buffered 100000 informational
+no logging rate-limit
+logging console critical
+aaa new-model
+!
+!
+aaa group server tacacs+ gs-ns3mgtise-tacacs
+ server-private 10.166.134.1 timeout 1 key 7 1511335A4D7B266070343C1600534D3950
+ ip vrf forwarding Mgmt-intf
+ ip tacacs source-interface GigabitEthernet0
+!
+aaa group server tacacs+ gs-eq4mgtise-tacacs
+ server-private 10.30.134.1 timeout 1 key 7 00072B504D0A06425726457A1A4D5E2D43
+ ip vrf forwarding Mgmt-intf
+ ip tacacs source-interface GigabitEthernet0
+!
+aaa authentication login default group gs-ns3mgtise-tacacs group gs-eq4mgtise-tacacs local
+aaa authorization console
+aaa authorization exec default group gs-ns3mgtise-tacacs group gs-eq4mgtise-tacacs local
+aaa authorization commands 15 default group gs-ns3mgtise-tacacs group gs-eq4mgtise-tacacs local
+aaa accounting update periodic 1440
+aaa accounting exec default start-stop group gs-ns3mgtise-tacacs group gs-eq4mgtise-tacacs
+aaa accounting commands 15 default start-stop group gs-ns3mgtise-tacacs group gs-eq4mgtise-tacacs
+aaa accounting system default start-stop group gs-ns3mgtise-tacacs group gs-eq4mgtise-tacacs
+!
+!
+aaa session-id common
+clock timezone AEST 10 0
+clock summer-time AEDT recurring 1 Sun Oct 2:00 1 Sun Apr 2:00
+!
+!
+subscriber templating
+ip options ignore
+!
+ip name-server vrf Mgmt-intf 10.167.10.10 10.31.10.10
+ip domain lookup vrf Mgmt-intf source-interface GigabitEthernet0
+ip domain name woolworths.com.au
+!
+!
+!
+!
+!
+!
+!
+!
+!
+login block-for 30 attempts 3 within 60
+login delay 5
+login on-failure log
+login on-success log
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+udld aggressive
+
+multilink bundle-name authenticated
+!
+flow record flow-record-ipv4
+ match ipv4 source address
+ match ipv4 destination address
+ match ipv4 protocol
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match application name
+ match flow direction
+ collect interface output
+ collect counter bytes
+ collect counter packets
+ collect timestamp sys-uptime first
+ collect timestamp sys-uptime last
+ collect routing source as
+ collect routing destination as
+ collect routing next-hop address ipv4
+ collect ipv4 source mask
+ collect ipv4 destination mask
+ collect transport tcp flags
+!
+!
+flow exporter NetflowExporter_ec1mgtexhnfl001
+ destination 10.166.132.182 vrf Mgmt-intf
+ source GigabitEthernet0
+ transport udp 2055
+!
+!
+flow exporter NetflowExporter_eq4mgtexhnfl001
+ destination 10.30.132.182 vrf Mgmt-intf
+ source GigabitEthernet0
+ transport udp 2055
+!
+!
+flow monitor NetflowMon
+ exporter NetflowExporter_ec1mgtexhnfl001
+ exporter NetflowExporter_eq4mgtexhnfl001
+ cache timeout active 60
+ cache entries 300000
+ statistics packet protocol
+ statistics packet size
+ record flow-record-ipv4
+!
+!
+password encryption aes
+pae
+!
+crypto pki trustpoint TP-self-signed-423694181
+ enrollment selfsigned
+ subject-name cn=IOS-Self-Signed-Certificate-423694181
+ revocation-check none
+ rsakeypair TP-self-signed-423694181
+ hash sha256
+!
+crypto pki trustpoint SLA-TrustPoint
+ enrollment terminal
+ revocation-check crl
+ hash sha256
+!
+!
+crypto pki certificate chain TP-self-signed-423694181
+ certificate self-signed 01
+  3082032E 30820216 A0030201 02020101 300D0609 2A864886 F70D0101 05050030
+  30312E30 2C060355 04031325 494F532D 53656C66 2D536967 6E65642D 43657274
+  69666963 6174652D 34323336 39343138 31301E17 0D323530 32323430 33333034
+  315A170D 33353032 32343033 33303431 5A303031 2E302C06 03550403 1325494F
+  532D5365 6C662D53 69676E65 642D4365 72746966 69636174 652D3432 33363934
+  31383130 82012230 0D06092A 864886F7 0D010101 05000382 010F0030 82010A02
+  82010100 99A80CAE F48D1DBA A9D103CD 7628F7A9 AE7ABF16 B1795AC9 36362258
+  314119CA E3C3AFA3 FF25E54B 9BCAD123 AF2D05EC 88EAF91B A4175B38 1BD0E64A
+  467FDD31 16DE813E D13FBD8D 0AB3AA64 2EA7E51E 267E8AD3 EC21CC22 74DAD312
+  BB4BA388 4E6B9734 4548AF54 C46B4196 9422972A 872D5F77 A8864A81 B8B719ED
+  0BC4F2D0 E8254365 2CAD3FC2 3D38BC4C 35D24255 5B788D36 F560DFA8 C1A0AAE8
+  102E9FC6 E0FA15ED 1F07D956 DE917897 AAB0074E EEA44A5B 676AB08E D2BB2444
+  77381136 1E739D77 3D5E3E68 2A59F673 4F42A6BB 3F76B20B 47956F0C 47C6D006
+  6D0BC808 06AAD7B2 12DB0CB1 3846AE25 6D74EF21 0F44A95B E8813F1E BE1AB7D0
+  52E51F51 02030100 01A35330 51300F06 03551D13 0101FF04 05300301 01FF301F
+  0603551D 23041830 16801456 E33BBE5C BB9BBE94 81F29379 222F39CB 10D94730
+  1D060355 1D0E0416 041456E3 3BBE5CBB 9BBE9481 F2937922 2F39CB10 D947300D
+  06092A86 4886F70D 01010505 00038201 0100155A F943DDFA 0828D537 84E74B2E
+  5F83DCF9 4EC05AC8 568F3059 CB3CAC85 1596DEE2 D6529F76 5BC964F5 18D9B044
+  0F5A98D9 F634A38B 3E91452E 699BB76D B8E2ACD0 7673168A 2F341461 36F4B969
+  44C10393 574B15C4 F8458CD7 C0DB5965 0C544912 148492AE 3C37E976 FC8AFD71
+  031723BF 2FA55AF2 9A3118EE 6FDE30D6 052CC5D0 4DA8D1B9 C8AE589E 384AFAFF
+  7475CBA3 C55B03A6 51D19082 EAC54789 9AB685D6 0FB2CA74 F3B9D37D 38FF5B06
+  D50E88D8 49A3CE84 0B59B6A2 08844725 CA8F36CA 3DF08EB9 29CDB965 D05D5E18
+  2FDC9A9F 54FCCEA1 74541B82 6590F38F 3648CA1A 925DBF0E D095C9E1 88C5CE7D
+  AF7B90E5 2E25B8A6 E1692379 08867884 AE74
+        quit
+crypto pki certificate chain SLA-TrustPoint
+ certificate ca 01
+  30820321 30820209 A0030201 02020101 300D0609 2A864886 F70D0101 0B050030
+  32310E30 0C060355 040A1305 43697363 6F312030 1E060355 04031317 43697363
+  6F204C69 63656E73 696E6720 526F6F74 20434130 1E170D31 33303533 30313934
+  3834375A 170D3338 30353330 31393438 34375A30 32310E30 0C060355 040A1305
+  43697363 6F312030 1E060355 04031317 43697363 6F204C69 63656E73 696E6720
+  526F6F74 20434130 82012230 0D06092A 864886F7 0D010101 05000382 010F0030
+  82010A02 82010100 A6BCBD96 131E05F7 145EA72C 2CD686E6 17222EA1 F1EFF64D
+  CBB4C798 212AA147 C655D8D7 9471380D 8711441E 1AAF071A 9CAE6388 8A38E520
+  1C394D78 462EF239 C659F715 B98C0A59 5BBB5CBD 0CFEBEA3 700A8BF7 D8F256EE
+  4AA4E80D DB6FD1C9 60B1FD18 FFC69C96 6FA68957 A2617DE7 104FDC5F EA2956AC
+  7390A3EB 2B5436AD C847A2C5 DAB553EB 69A9A535 58E9F3E3 C0BD23CF 58BD7188
+  68E69491 20F320E7 948E71D7 AE3BCC84 F10684C7 4BC8E00F 539BA42B 42C68BB7
+  C7479096 B4CB2D62 EA2F505D C7B062A4 6811D95B E8250FC4 5D5D5FB8 8F27D191
+  C55F0D76 61F9A4CD 3D992327 A8BB03BD 4E6D7069 7CBADF8B DF5F4368 95135E44
+  DFC7C6CF 04DD7FD1 02030100 01A34230 40300E06 03551D0F 0101FF04 04030201
+  06300F06 03551D13 0101FF04 05300301 01FF301D 0603551D 0E041604 1449DC85
+  4B3D31E5 1B3E6A17 606AF333 3D3B4C73 E8300D06 092A8648 86F70D01 010B0500
+  03820101 00507F24 D3932A66 86025D9F E838AE5C 6D4DF6B0 49631C78 240DA905
+  604EDCDE FF4FED2B 77FC460E CD636FDB DD44681E 3A5673AB 9093D3B1 6C9E3D8B
+  D98987BF E40CBD9E 1AECA0C2 2189BB5C 8FA85686 CD98B646 5575B146 8DFC66A8
+  467A3DF4 4D565700 6ADF0F0D CF835015 3C04FF7C 21E878AC 11BA9CD2 55A9232C
+  7CA7B7E6 C1AF74F6 152E99B7 B1FCF9BB E973DE7F 5BDDEB86 C71E3B49 1765308B
+  5FB0DA06 B92AFE7F 494E8A9E 07B85737 F3A58BE1 1A48A229 C37C1E69 39F08678
+  80DDCD16 D6BACECA EEBC7CF9 8428787B 35202CDC 60E4616A B623CDBD 230E3AFB
+  418616A9 4093E049 4D10AB75 27E86F73 932E35B5 8862FDAE 0275156F 719BB2F0
+  D697DF7F 28
+        quit
+!
+!
+!
+!
+!
+!
+!
+!
+!
+license udi pid C8500-12X4QC sn TTM2748034W
+license boot level network-advantage addon dna-advantage
+license smart transport smart
+license smart vrf Mgmt-intf
+!
+archive
+ log config
+  logging enable
+  logging size 500
+  notify syslog contenttype plaintext
+ path bootflash:/archive/$h-$t
+ maximum 14
+ write-memory
+memory free low-watermark processor 988885
+hw-module subslot 0/1 mode 40G
+hw-module subslot 0/2 mode 40G
+hw-module subslot 0/2 breakout none port all
+diagnostic bootup level minimal
+!
+spanning-tree extend system-id
+!
+!
+enable secret 8 $8$aZMKdWdaz2ESkU$sGxeEKmmdRPTXGDU67OH8Wk5VZokAhIFfzNDRpoK5Q6
+!
+username admin privilege 15 secret 8 $8$TMgFCzlTEqAW8.$aiXRmzQdcoibhgkmYE915IZ/CRoa.E5fJjd3DjQfHtI
+!
+redundancy
+ mode none
+bfd slow-timers 1000
+bfd map ipv4 vrf vrf-enx-edge 10.5.16.21/32 vrf vrf-enx-edge 10.5.16.20/32 template-bfd-multi
+bfd map ipv4 vrf vrf-enx-edge 10.5.16.22/32 vrf vrf-enx-edge 10.5.16.20/32 template-bfd-multi
+bfd map ipv4 vrf vrf-enx-edge 10.5.16.23/32 vrf vrf-enx-edge 10.5.16.20/32 template-bfd-multi
+bfd-template single-hop template-bfd
+ interval min-tx 300 min-rx 300 multiplier 3
+!
+bfd-template multi-hop template-bfd-multi
+ interval min-tx 300 min-rx 300 multiplier 3
+!
+!
+!
+!
+!
+!
+cdp run
+!
+lldp run
+!
+class-map match-any cm-dscp-1-in
+  description -- all class 1 traffic - actually BE
+ match dscp cs1  9  af11  11  af12  13  af13  15
+class-map match-any cm-dscp-2-in
+  description -- all class 2 traffic
+ match dscp cs2  17  af21  19  af22  21  af23  23
+class-map match-any cm-dscp-3-in
+  description -- all class 3 traffic
+ match dscp cs3  25  af31  27  af32  29  af33  31
+class-map match-any cm-dscp-4-in
+  description -- all class 4 traffic
+ match dscp 3  cs4  33  af41  35  af42  37  af43
+class-map match-any cm-dscp-5-in
+  description -- all class 5 traffic
+ match dscp cs5  41  42  43  44  45  ef  47
+class-map match-any cm-dscp-6-in
+  description -- all class 6 traffic
+ match dscp cs6  49  50  51  52  53  54  55
+class-map match-any cm-dscp-1-cs1-out
+  description -- CS1 scavenger traffic
+ match dscp cs1
+class-map match-any cm-dscp-1-out
+  description -- remaining class 1 traffic
+ match dscp af11  af12  af13
+class-map match-any cm-dscp-3-out
+  description -- class 3 traffic
+ match dscp cs3  af31  af32  af33
+class-map match-any cm-dscp-2-out
+  description -- class 2 traffic
+ match dscp cs2  af21  af22  af23
+class-map match-any cm-dscp-5-out
+  description -- class 5 traffic
+ match dscp cs5  ef
+class-map match-any cm-dscp-4-out
+  description -- class 4 traffic
+ match dscp cs4  af41  af42  af43
+class-map match-any cm-dscp-6-out
+  description -- class 6 traffic
+ match dscp cs6
+!
+policy-map pm-qos-wan-out
+ description -- WoW standard QoS - Policy enforcement
+ class cm-dscp-6-out
+  bandwidth remaining percent 5
+ class cm-dscp-5-out
+  priority percent 10
+ class cm-dscp-4-out
+  bandwidth remaining percent 35
+ class cm-dscp-3-out
+  bandwidth remaining percent 30
+  random-detect dscp-based
+ class cm-dscp-2-out
+  bandwidth remaining percent 15
+  random-detect dscp-based
+ class cm-dscp-1-cs1-out
+  set dscp default
+ class cm-dscp-1-out
+  bandwidth remaining percent 5
+  set dscp 2
+  random-detect dscp-based
+  queue-limit 128 packets
+ class class-default
+  bandwidth remaining percent 10
+  fair-queue
+  set dscp af11
+  random-detect dscp-based
+  queue-limit 128 packets
+policy-map pm-qos-wan-shaping-out
+ description WoW standard QoS - Traffic Shaping
+ class class-default
+  shape average 9500000000 237500000
+  service-policy pm-qos-wan-out
+policy-map pm-qos-wan-in
+ class cm-dscp-6-in
+ class cm-dscp-5-in
+ class cm-dscp-4-in
+ class cm-dscp-3-in
+ class cm-dscp-2-in
+ class cm-dscp-1-in
+  set dscp default
+ class class-default
+  set dscp af11
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+interface Loopback280
+ description Loopback - OSPF 280 BGP 65506 router-id
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.16.20 255.255.255.255
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ ip ospf 280 area 0
+!
+interface TenGigabitEthernet0/0/0
+ description Transit-l3 - es4sdwrtr001 - Te0/0/4
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.19.44 255.255.255.254
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ no negotiation auto
+ cdp enable
+ bfd template template-bfd
+!
+interface TenGigabitEthernet0/0/1
+ description Transit-l3 - es4sdwrtr002 - Te0/0/4
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.19.46 255.255.255.254
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ no negotiation auto
+ cdp enable
+ bfd template template-bfd
+!
+interface TenGigabitEthernet0/0/2
+ description Transit-l3 - es4sdwrtr003 - Te0/0/4
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.19.48 255.255.255.254
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ no negotiation auto
+ cdp enable
+ bfd template template-bfd
+!
+interface TenGigabitEthernet0/0/3
+ description Transit-l3 - es4sdwrtr001np - Te0/0/4
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.19.50 255.255.255.254
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ no negotiation auto
+ cdp enable
+ bfd template template-bfd
+!
+interface TenGigabitEthernet0/0/4
+ description Transit-l3 - es4sdwrtr002np - Te0/0/4
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.19.52 255.255.255.254
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ no negotiation auto
+ cdp enable
+ bfd template template-bfd
+!
+interface TenGigabitEthernet0/0/5
+ description prt-unused
+ no ip address
+ shutdown
+ no negotiation auto
+!
+interface TenGigabitEthernet0/0/6
+ description prt-unused
+ no ip address
+ shutdown
+ no negotiation auto
+!
+interface TenGigabitEthernet0/0/7
+ description Transit-l3 - Telstra MPLS - N2890609R //MPLS //BW:10000
+ bandwidth 10000000
+ vrf forwarding vrf-enx-edge
+ ip flow monitor NetflowMon input
+ ip flow monitor NetflowMon output
+ ip address 10.0.2.129 255.255.255.252
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ negotiation auto
+ bfd interval 1000 min_rx 1000 multiplier 3
+ no mop enabled
+ service-policy input pm-qos-wan-in
+ service-policy output pm-qos-wan-shaping-out
+!
+interface FortyGigabitEthernet0/1/0
+ description Transit-l3 - es4enxswi002 - Eth1/54
+ no ip address
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ no negotiation auto
+ cdp enable
+!
+interface FortyGigabitEthernet0/1/0.1115
+ description Transit-l3 - es4enxswi002 - Vlan1115
+ encapsulation dot1Q 1115
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.19.27 255.255.255.254
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ ip ospf message-digest-key 1 md5 7 07352249660114541816580150033F0927
+ ip ospf network point-to-point
+ ip ospf dead-interval 40
+ ip ospf retransmit-interval 2
+ ip ospf 280 area 0
+ ip ospf cost 60
+ bfd template template-bfd
+!
+interface FortyGigabitEthernet0/2/0
+ description Transit-l3 - es4enxswi001 - Eth1/53
+ no ip address
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ no negotiation auto
+ cdp enable
+!
+interface FortyGigabitEthernet0/2/0.1114
+ description Transit-l3 - es4enxswi001 - Vlan1114
+ encapsulation dot1Q 1114
+ vrf forwarding vrf-enx-edge
+ ip address 10.5.19.25 255.255.255.254
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ ip ospf message-digest-key 1 md5 7 11331A003F1A065D0B2E78297C1A210F1C
+ ip ospf network point-to-point
+ ip ospf dead-interval 40
+ ip ospf retransmit-interval 2
+ ip ospf 280 area 0
+ ip ospf cost 20
+ bfd template template-bfd
+!
+interface FortyGigabitEthernet0/2/4
+ description prt-unused
+ no ip address
+ shutdown
+ no negotiation auto
+!
+interface FortyGigabitEthernet0/2/8
+ description prt-unused
+ no ip address
+ shutdown
+ no negotiation auto
+!
+interface GigabitEthernet0
+ description Mgt - es4mgtswi001 - Gi1/0/18
+ vrf forwarding Mgmt-intf
+ ip address 10.5.0.27 255.255.255.0
+ ip access-group al-mgt-access-in in
+ negotiation auto
+ cdp enable
+!
+router ospf 280 vrf vrf-enx-edge
+ router-id 10.5.16.20
+ max-metric router-lsa on-startup wait-for-bgp
+ auto-cost reference-bandwidth 100000
+ nsf ietf
+ area 0 authentication message-digest
+ timers throttle spf 5 1000 3000
+ timers throttle lsa 100 10000 30000
+ passive-interface default
+ no passive-interface FortyGigabitEthernet0/1/0.1115
+ no passive-interface FortyGigabitEthernet0/2/0.1114
+ bfd all-interfaces
+!
+router bgp 65506
+ bgp router-id 10.5.16.20
+ bgp log-neighbor-changes
+ timers bgp 10 30
+ !
+ address-family ipv4 vrf vrf-enx-edge
+  aggregate-address 10.0.0.0 255.0.0.0 attribute-map rm-bgp-65506-agg-es4
+  neighbor 10.0.2.130 remote-as 65530
+  neighbor 10.0.2.130 description eBGP peer to 65530: 10.0.2.130: Telstra MPLS
+  neighbor 10.0.2.130 fall-over bfd
+  neighbor 10.0.2.130 activate
+  neighbor 10.0.2.130 send-community
+  neighbor 10.0.2.130 soft-reconfiguration inbound
+  neighbor 10.0.2.130 route-map rm-bgp-65506-rcv-65530-Telstra_MPLS in
+  neighbor 10.0.2.130 route-map rm-bgp-65506-adv-65530-Telstra_MPLS out
+  neighbor 10.5.16.21 remote-as 65506
+  neighbor 10.5.16.21 description iBGP peer to 65506 : 10.5.16.21 : iBGP to es4enxrtr002
+  neighbor 10.5.16.21 password 7 00553D51136D3A05190E751F023F17433D
+  neighbor 10.5.16.21 update-source Loopback280
+  neighbor 10.5.16.21 fall-over bfd multi-hop
+  neighbor 10.5.16.21 activate
+  neighbor 10.5.16.21 send-community
+  neighbor 10.5.16.21 next-hop-self
+  neighbor 10.5.16.22 remote-as 65506
+  neighbor 10.5.16.22 description iBGP peer to 65506 : 10.5.16.22 : iBGP to es4enxswi001
+  neighbor 10.5.16.22 password 7 014228534C3D370C376377581223054624
+  neighbor 10.5.16.22 update-source Loopback280
+  neighbor 10.5.16.22 fall-over bfd multi-hop
+  neighbor 10.5.16.22 activate
+  neighbor 10.5.16.22 send-community
+  neighbor 10.5.16.22 next-hop-self
+  neighbor 10.5.16.23 remote-as 65506
+  neighbor 10.5.16.23 description iBGP peer to 65506 : 10.5.16.23 : iBGP to es4enxswi002
+  neighbor 10.5.16.23 password 7 040A255118177D4D1F363C46192D1E5005
+  neighbor 10.5.16.23 update-source Loopback280
+  neighbor 10.5.16.23 fall-over bfd multi-hop
+  neighbor 10.5.16.23 activate
+  neighbor 10.5.16.23 send-community
+  neighbor 10.5.16.23 next-hop-self
+  neighbor 10.5.19.45 remote-as 65513
+  neighbor 10.5.19.45 description eBGP peer to 65513: 10.5.19.45: es4sdwrtr001
+  neighbor 10.5.19.45 password 7 002D0A070C4F1E1521031B183718110D405B5D55
+  neighbor 10.5.19.45 fall-over bfd
+  neighbor 10.5.19.45 activate
+  neighbor 10.5.19.45 send-community
+  neighbor 10.5.19.45 route-map rm-bgp-65506-rcv-65513-sdwrtr001-vpn0 in
+  neighbor 10.5.19.45 route-map rm-bgp-65506-adv-65513-sdw-vpn0 out
+  neighbor 10.5.19.47 remote-as 65513
+  neighbor 10.5.19.47 description eBGP peer to 65513: 10.5.19.47: es4sdwrtr002
+  neighbor 10.5.19.47 password 7 022F1D5A03121A32626C5E4F3B1606115E547B7A
+  neighbor 10.5.19.47 fall-over bfd
+  neighbor 10.5.19.47 activate
+  neighbor 10.5.19.47 send-community
+  neighbor 10.5.19.47 route-map rm-bgp-65506-rcv-65513-sdwrtr002-vpn0 in
+  neighbor 10.5.19.47 route-map rm-bgp-65506-adv-65513-sdw-vpn0 out
+  neighbor 10.5.19.49 remote-as 65513
+  neighbor 10.5.19.49 description eBGP peer to 65513: 10.5.19.49: es4sdwrtr003
+  neighbor 10.5.19.49 password 7 013A1F05531F131C0F6E195F27040308595C557B
+  neighbor 10.5.19.49 fall-over bfd
+  neighbor 10.5.19.49 activate
+  neighbor 10.5.19.49 send-community
+  neighbor 10.5.19.49 route-map rm-bgp-65506-rcv-65513-sdwrtr003-vpn0 in
+  neighbor 10.5.19.49 route-map rm-bgp-65506-adv-65513-sdw-vpn0 out
+  neighbor 10.5.19.51 remote-as 65514
+  neighbor 10.5.19.51 description eBGP peer to 65514: 10.5.19.51: es4sdwrtr001np
+  neighbor 10.5.19.51 password 7 047212070735595D273B52412C0A181E787B7579
+  neighbor 10.5.19.51 fall-over bfd
+  neighbor 10.5.19.51 activate
+  neighbor 10.5.19.51 send-community
+  neighbor 10.5.19.51 route-map rm-bgp-65506-rcv-65514-sdwrtr001np-vpn0 in
+  neighbor 10.5.19.51 route-map rm-bgp-65506-adv-65514-npsdw-vpn0 out
+  neighbor 10.5.19.53 remote-as 65514
+  neighbor 10.5.19.53 description eBGP peer to 65514: 10.5.19.53: es4sdwrtr002np
+  neighbor 10.5.19.53 password 7 05221F0E29585B1A37274044350D103079747962
+  neighbor 10.5.19.53 fall-over bfd
+  neighbor 10.5.19.53 activate
+  neighbor 10.5.19.53 send-community
+  neighbor 10.5.19.53 route-map rm-bgp-65506-rcv-65514-sdwrtr002np-vpn0 in
+  neighbor 10.5.19.53 route-map rm-bgp-65506-adv-65514-npsdw-vpn0 out
+ exit-address-family
+!
+ip forward-protocol nd
+!
+ip bgp-community new-format
+ip community-list expanded cl-org-pol-community-permit permit .65[3,5]06:2[0]+.
+ip community-list expanded cl-SO-all_types-community-permit permit .*[0-9]+:8[0-2].*
+ip community-list expanded cl-SO-dual-active-passive-80 permit ([0-9]+):80
+ip community-list expanded cl-SO-es4-primary-ns3-standby-81 permit ([0-9]+):81
+ip community-list expanded cl-SO-ns3-primary-es4-standby-82 permit ([0-9]+):82
+ip community-list expanded cl-SO-orphan-83 permit ([0-9]+):83
+ip as-path access-list 1 permit _65506_
+ip as-path access-list 1 permit _65306_
+ip as-path access-list 2 permit _65123_
+ip as-path access-list 2 permit _65133_
+ip as-path access-list 10 permit _12076_
+ip as-path access-list 10 permit _16550_
+ip as-path access-list 10 permit _65160_
+ip tftp source-interface GigabitEthernet0
+no ip http server
+ip http authentication local
+no ip http secure-server
+ip ssh bulk-mode 131072
+ip ssh source-interface GigabitEthernet0
+ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+ip scp server enable
+ip route vrf Mgmt-intf 0.0.0.0 0.0.0.0 10.5.0.1 name vrf_Mgmt-intf_default
+!
+ip access-list standard al-snmp-access-in
+ 10 remark Infoblox
+ 10 permit 10.114.148.0 0.0.0.31
+ 20 permit 10.115.148.0 0.0.0.31
+ 30 remark NTT Logic Monitor
+ 30 permit 10.48.252.0 0.0.1.255
+!
+ip access-list extended al-mgt-access-in
+ 100 remark Gateway Address
+ 105 permit icmp host 10.5.0.1 any
+ 110 remark NextDC S3 Jump Hosts
+ 115 permit ip 10.4.92.0 0.0.0.255 any
+ 120 remark Equinix SY4 Jump Hosts
+ 125 permit ip 10.5.92.0 0.0.0.255 any
+ 130 remark Azure South Jump Hosts
+ 140 remark Azure South East Jump Hosts
+ 150 remark Cisco BCS Collector
+ 160 remark Tufin
+ 170 remark Infoblox
+ 175 permit ip 10.114.148.0 0.0.0.31 any
+ 176 permit ip 10.115.148.0 0.0.0.31 any
+ 180 remark NTT Logic Monitor
+ 185 permit ip 10.48.252.0 0.0.1.255 any
+ 190 remark NextDC S3 TACACS VIP
+ 195 permit ip host 10.166.134.1 any
+ 200 remark Equinix SY4 TACACS VIP
+ 205 permit ip host 10.30.134.1 any
+ 210 remark NTP Server 1
+ 215 permit ip host 10.166.131.254 any
+ 220 remark NTP Server 2
+ 225 permit ip host 10.30.131.254 any
+ 230 remark NTP Server 3
+ 235 permit ip host 10.166.131.253 any
+ 240 remark NTP Server 4
+ 245 permit ip host 10.30.131.253 any
+ 250 remark ECDC Jump Hosts
+ 255 permit ip 10.166.132.128 0.0.0.63 any
+ 260 remark DNS Server 1
+ 265 permit ip host 10.167.10.10 any
+ 270 remark DNS Server 2
+ 275 permit ip host 10.31.10.10 any
+ 999 deny ip any any log
+!
+!
+ip prefix-list pl-bgp-65506-adv-65513-sdw-vpn0 description Advertise 10/8 to sdwan
+ip prefix-list pl-bgp-65506-adv-65513-sdw-vpn0 seq 10 permit 10.0.0.0/8
+!
+ip prefix-list pl-bgp-65506-adv-65514-npsdw-vpn0 description Advertise 10/8 to npsdwan
+ip prefix-list pl-bgp-65506-adv-65514-npsdw-vpn0 seq 10 permit 10.0.0.0/8
+!
+ip prefix-list pl-bgp-65506-adv-65530-Telstra_MPLS-es4 description Advertise ES4 DC prefixes to MPLS
+ip prefix-list pl-bgp-65506-adv-65530-Telstra_MPLS-es4 seq 10 permit 10.5.0.0/16 le 32
+!
+ip prefix-list pl-bgp-65506-adv-65530-Telstra_MPLS-ns3 description Advertise NS3 DC prefixes to MPLS
+ip prefix-list pl-bgp-65506-adv-65530-Telstra_MPLS-ns3 seq 10 permit 10.4.0.0/16 le 32
+!
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr001-vpn0 description Receive TLOCs from es4sdwrtr001
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr001-vpn0 seq 10 permit 10.5.16.56/32
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr001-vpn0 seq 20 permit 10.5.16.57/32
+!
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr002-vpn0 description Receive TLOCs from es4sdwrtr002
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr002-vpn0 seq 10 permit 10.5.16.59/32
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr002-vpn0 seq 20 permit 10.5.16.60/32
+!
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr003-vpn0 description Receive TLOCs from es4sdwrtr003
+ip prefix-list pl-bgp-65506-rcv-65513-sdwanrtr003-vpn0 seq 10 permit 10.5.16.62/32
+!
+ip prefix-list pl-bgp-65506-rcv-65514-sdwanrtr001np-vpn0 description Receive TLOCs from es4sdwrtr001np
+ip prefix-list pl-bgp-65506-rcv-65514-sdwanrtr001np-vpn0 seq 10 permit 10.5.16.64/32
+ip prefix-list pl-bgp-65506-rcv-65514-sdwanrtr001np-vpn0 seq 20 permit 10.5.16.65/32
+!
+ip prefix-list pl-bgp-65506-rcv-65514-sdwanrtr002np-vpn0 description Receive TLOCs from es4sdwrtr002np
+ip prefix-list pl-bgp-65506-rcv-65514-sdwanrtr002np-vpn0 seq 10 permit 10.5.16.67/32
+ip prefix-list pl-bgp-65506-rcv-65514-sdwanrtr002np-vpn0 seq 20 permit 10.5.16.68/32
+!
+ip prefix-list pl-default-route seq 5 permit 0.0.0.0/0
+!
+ip prefix-list pl-deny-default-10 seq 10 permit 0.0.0.0/0
+ip prefix-list pl-deny-default-10 seq 20 permit 10.0.0.0/8
+logging trap debugging
+logging source-interface GigabitEthernet0 vrf Mgmt-intf
+logging host 10.5.0.67 vrf Mgmt-intf session-id hostname
+logging host 10.48.252.162 vrf Mgmt-intf
+logging host 10.48.252.163 vrf Mgmt-intf
+!
+route-map rm-bgp-65506-adv-65513-sdw-vpn0 permit 10
+ description Advertise 10/8 to sdwan
+ match ip address prefix-list pl-bgp-65506-adv-65513-sdw-vpn0
+!
+route-map rm-bgp-65506-rcv-65514-sdwrtr001np-vpn0 permit 10
+ description Permit TLOCs from es4sdwrtr001np
+ match ip address prefix-list pl-bgp-65506-rcv-65514-sdwanrtr001np-vpn0
+!
+route-map rm-bgp-65506-rcv-65514-sdwrtr002np-vpn0 permit 10
+ description Permit TLOCs from es4sdwrtr002np
+ match ip address prefix-list pl-bgp-65506-rcv-65514-sdwanrtr002np-vpn0
+!
+route-map rm-bgp-65506-rcv-65513-sdwrtr003-vpn0 permit 10
+ description Permit TLOCs from es4sdwrtr003
+ match ip address prefix-list pl-bgp-65506-rcv-65513-sdwanrtr003-vpn0
+!
+route-map rm-bgp-65506-adv-65514-npsdw-vpn0 permit 10
+ description Advertise 10/8 to sdwan
+ match ip address prefix-list pl-bgp-65506-adv-65514-npsdw-vpn0
+!
+route-map rm-bgp-65506-agg-es4 permit 10
+ set community 65302:202 65305:202 65306:202 65309:202 65502:200 65505:200 65506:200 65509:200
+!
+route-map rm-bgp-65506-rcv-65513-sdwrtr002-vpn0 permit 10
+ description Permit TLOCs from es4sdwrtr002
+ match ip address prefix-list pl-bgp-65506-rcv-65513-sdwanrtr002-vpn0
+!
+route-map rm-bgp-65506-adv-65530-Telstra_MPLS deny 5
+ description Deny Default and 10.0.0.0/8
+ match ip address prefix-list pl-deny-default-10
+!
+route-map rm-bgp-65506-adv-65530-Telstra_MPLS deny 7
+ description deny azure and gcp routes to MPLS
+ match as-path 10
+!
+route-map rm-bgp-65506-adv-65530-Telstra_MPLS permit 10
+ description route-map: permit outbound prefixes to Telstra MPLS - ES4 Prefix
+ match ip address prefix-list pl-bgp-65506-adv-65530-Telstra_MPLS-es4
+!
+route-map rm-bgp-65506-adv-65530-Telstra_MPLS permit 20
+ description route-map: permit outbound prefixes to Telstra MPLS - NS3 Prefix
+ match ip address prefix-list pl-bgp-65506-adv-65530-Telstra_MPLS-ns3
+!
+route-map rm-bgp-65506-adv-65530-Telstra_MPLS permit 30
+ description Permit prefixes with a datacentre PERMIT community
+ match community cl-org-pol-community-permit
+!
+route-map rm-bgp-65506-adv-65530-Telstra_MPLS permit 40
+ description Permit prefixes with a SO community
+ match community cl-SO-all_types-community-permit
+!
+route-map rm-bgp-65506-adv-65530-Telstra_MPLS deny 1000
+ description Deny all
+!
+route-map rm-bgp-65506-rcv-65513-sdwrtr001-vpn0 permit 10
+ description Permit TLOCs from es4sdwrtr001
+ match ip address prefix-list pl-bgp-65506-rcv-65513-sdwanrtr001-vpn0
+!
+route-map rm-bgp-65506-rcv-65530-Telstra_MPLS deny 10
+ description Deny default route
+ match ip address prefix-list pl-default-route
+!
+route-map rm-bgp-65506-rcv-65530-Telstra_MPLS deny 20
+ description Deny routes from SCN 2.0
+ match as-path 1
+!
+route-map rm-bgp-65506-rcv-65530-Telstra_MPLS deny 30
+ description Deny routes from SCN 1.0
+ match as-path 2
+!
+route-map rm-bgp-65506-rcv-65530-Telstra_MPLS permit 100
+ description Permit all
+ set metric 0
+ set community 65302:202 65305:202 65306:202 65309:202 65502:200 65505:200 65506:200 65509:200
+!
+snmp-server group GRAFANA v3 auth
+snmp-server group GRAFANA v3 auth context vrf- match prefix
+snmp-server group ipam-read-group-auth v3 priv
+snmp-server group cncnms-auth-read-user v3 priv
+snmp-server group dnac-auth-read-user-v3 v3 priv
+snmp-server group gsoanms-auth-read-user v3 priv
+snmp-server group ecmgtnms-auth-read-user v3 priv
+snmp-server group nwmgtnms-auth-read-user v3 priv
+snmp-server view eHealth internet excluded
+snmp-server view eHealth system included
+snmp-server view eHealth ciscoPingMIB included
+snmp-server view eHealth ccmHistory included
+snmp-server trap-source GigabitEthernet0
+snmp-server location "AU - NSW - Woolworths - Equinix SY4, A/200 Bourke Rd, Alexandria NSW 2015 - 02:050400 - Rack: 118"
+snmp-server contact NTT MS: 1800 763 996
+snmp-server enable traps entity-perf throughput-notif
+snmp-server enable traps call-home message-send-fail server-fail
+snmp-server enable traps tty
+snmp-server enable traps ospf state-change
+snmp-server enable traps ospf errors
+snmp-server enable traps ospf retransmit
+snmp-server enable traps ospf lsa
+snmp-server enable traps ospf cisco-specific state-change nssa-trans-change
+snmp-server enable traps ospf cisco-specific state-change shamlink interface
+snmp-server enable traps ospf cisco-specific state-change shamlink neighbor
+snmp-server enable traps ospf cisco-specific errors
+snmp-server enable traps ospf cisco-specific retransmit
+snmp-server enable traps ospf cisco-specific lsa
+snmp-server enable traps aaa_server
+snmp-server enable traps cef resource-failure peer-state-change peer-fib-state-change inconsistency
+snmp-server enable traps memory bufferpeak
+snmp-server enable traps entity-qfp mem-res-thresh throughput-notif
+snmp-server enable traps entity-sensor
+snmp-server enable traps entity-state
+snmp-server enable traps resource-policy
+snmp-server enable traps hsrp
+snmp-server enable traps bgp
+snmp-server enable traps flash insertion
+snmp-server enable traps flash removal
+snmp-server enable traps entity
+snmp-server enable traps cpu threshold
+snmp-server enable traps cnpd
+snmp-server enable traps entity-diag boot-up-fail hm-test-recover hm-thresh-reached scheduled-test-fail
+snmp-server enable traps smart-license
+snmp-server enable traps bfd
+snmp-server enable traps alarms informational
+snmp-server enable traps vrfmib vrf-up vrf-down vnet-trunk-up vnet-trunk-down
+snmp-server enable traps transceiver all
+snmp-server host 10.166.132.11 vrf Mgmt-intf version 3 priv cncnms-auth-read-user
+snmp-server host 10.134.132.8 vrf Mgmt-intf version 3 priv ecmgtnms-auth-read-user
+snmp-server host 10.166.132.9 vrf Mgmt-intf version 3 priv ecmgtnms-auth-read-user
+snmp-server host 10.5.0.67 vrf Mgmt-intf version 3 auth grafana
+snmp-server host 10.48.252.140 version 3 priv gsoanms-auth-read-user
+snmp-server host 10.48.252.140 vrf Mgmt-intf version 3 priv gsoanms-auth-read-user
+snmp-server host 10.134.132.8 vrf Mgmt-intf version 3 priv nwmgtnms-auth-read-user
+snmp-server host 10.166.132.9 vrf Mgmt-intf version 3 priv nwmgtnms-auth-read-user
+snmp-server context vrf-enx-edge
+snmp-server context es4-118-ru13-enx-rtr-001
+snmp ifmib ifindex persist
+!
+!
+!
+!
+!
+control-plane
+!
+!
+!
+!
+!
+banner exec ^CC
+****************************************************************
+* Equinix SY4, A/200 Bourke Rd, Alexandria NSW 2015
+* es4-118-ru13-enx-rtr-001
+****************************************************************
+^C
+banner login ^CC
+****************************************************************
+****>>>   DO NOT CONTINUE WITHOUT PROPER AUTHORISATION   <<<****
+****************************************************************
+*                                                              *
+* Do not attempt to log-on unless you are an authorised user.  *
+* Use of these IT systems is governed by the "Acceptable Use   *
+* of Information Systems Policy" (available from your Manager).*
+* System usage is logged and monitored. By logging on you      *
+* accept that your use is governed by this Policy.             *
+*                                                              *
+****************************************************************
+****>>                      WARNING                      <<<****
+****************************************************************
+*                                                              *
+* Use of the system for any purpose involving sexually         *
+* explicit, racist, discriminatory, illegal or objectionable   *
+* material is STRICTLY PROHIBITED and may result in instant    *
+* dismissal.                                                   *
+*                                                              *
+****************************************************************
+^C
+!
+line con 0
+ exec-timeout 20 0
+ logging synchronous
+ stopbits 1
+line aux 0
+ exec-timeout 0 1
+ transport output none
+line vty 0 4
+ access-class al-mgt-access-in in vrf-also
+ exec-timeout 20 0
+ logging synchronous
+ transport input ssh
+ transport output none
+line vty 5 15
+ access-class al-mgt-access-in in vrf-also
+ exec-timeout 20 0
+ logging synchronous
+ transport input ssh
+ transport output none
+!
+call-home
+ ! If contact email address in call-home is configured as sch-smart-licensing@cisco.com
+ ! the email address configured in Cisco Smart License Portal will be used as contact email address to send SCH notifications.
+ contact-email-addr sch-smart-licensing@cisco.com
+ profile "CiscoTAC-1"
+  active
+  destination transport-method http
+ntp logging
+no ntp allow mode control 3
+ntp source GigabitEthernet0
+ntp server vrf Mgmt-intf 10.166.131.253
+ntp server vrf Mgmt-intf 10.30.131.253
+ntp server vrf Mgmt-intf 10.30.131.254 prefer
+ntp server vrf Mgmt-intf 10.166.131.254
+!
+!
+!
