@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 import re
 import sys
 from collections import defaultdict
@@ -13,8 +14,12 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ciscoconfparse import CiscoConfParse
+from loguru import logger
 from app.models.interface import Interface
 from app.models.bgp import BgpProcess, BgpNeighbor, BgpVrfContext, NeighborAfPolicy
+
+logging.getLogger("ciscoconfparse").setLevel(logging.WARNING)
+logger.disable("ciscoconfparse")
 
 
     
@@ -97,7 +102,13 @@ def parse_bgp(config_file: str) -> list[BgpProcess]:
         local_as = parse_local_as(bgp_conf)
         router_id = parse_bgp_router_id(bgp_conf)
 
-        global_peers: dict[str, dict[str, Any]] = {}
+        global_peers: dict[str, dict[str, Any]] = collect_bgp_neighbors(
+            [
+                child
+                for child in bgp_conf.children
+                if child.text.strip().lower().startswith("neighbor ")
+            ]
+        )
         vrfs: dict[str, BgpVrfContext] = {}
 
         af_blocks = bgp_conf.re_search_children(r"^\s+address-family")
@@ -112,7 +123,8 @@ def parse_bgp(config_file: str) -> list[BgpProcess]:
                     neighbors=build_bgp_neighbors(peers, af_name),
                 )
             else:
-                global_peers.update(peers)
+                for peer_ip, peer_data in peers.items():
+                    global_peers.setdefault(peer_ip, {}).update(peer_data)
 
         bgp_processes.append(
             BgpProcess(

@@ -9,6 +9,7 @@ dependencies = [
     "ciscoconfparse>=1.9.52",
     "isort>=8.0.1",
     "langchain>=1.2.16",
+    "langchain-ollama>=1.1.0",
     "langchain-openai>=1.2.1",
     "langsmith>=0.7.38",
     "pydantic>=2.13.3",

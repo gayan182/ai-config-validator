@@ -1,0 +1,336 @@
+!
+! IOS XE Sample Configuration - RTR02
+! Purpose: Complex BGP parsing/testing config with interfaces, VRFs, route-maps, prefix-lists and communities
+!
+hostname iosxe-rtr02
+!
+no ip domain lookup
+ip domain name lab.example.local
+!
+vrf definition CUST-A
+ description Customer A production VRF
+ rd 65000:101
+ route-target export 65000:101
+ route-target import 65000:101
+ address-family ipv4
+ exit-address-family
+!
+vrf definition CUST-B
+ description Customer B non-production VRF
+ rd 65000:102
+ route-target export 65000:102
+ route-target import 65000:102
+ address-family ipv4
+ exit-address-family
+!
+vrf definition MGMT
+ description Dedicated device management VRF
+ address-family ipv4
+ exit-address-family
+!
+interface Loopback0
+ description GLOBAL BGP ROUTER-ID / iBGP UPDATE-SOURCE
+ ip address 10.255.0.2 255.255.255.255
+!
+interface Loopback10
+ description CUST-A BGP UPDATE-SOURCE
+ vrf forwarding CUST-A
+ ip address 10.101.255.2 255.255.255.255
+!
+interface Loopback20
+ description CUST-B BGP UPDATE-SOURCE
+ vrf forwarding CUST-B
+ ip address 10.102.255.2 255.255.255.255
+!
+interface GigabitEthernet0/0/0
+ description TRANSIT_TO_iosxe-rtr01_GLOBAL_iBGP_UNDERLAY
+ ip address 172.16.12.2 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/0/1
+ description AWS_DIRECT_CONNECT_EDGE_eBGP_GLOBAL
+ ip address 192.0.2.2 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/0/2
+ description AZURE_EXPRESSROUTE_EDGE_eBGP_GLOBAL
+ ip address 192.0.2.6 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/0/3
+ description TRUNK_TO_CUSTOMER_FIREWALLS_VRF_HANDOFFS
+ no ip address
+ no shutdown
+!
+interface GigabitEthernet0/0/3.101
+ description CUST-A_FIREWALL_TRANSIT_VLAN101
+ encapsulation dot1Q 101
+ vrf forwarding CUST-A
+ ip address 10.101.1.2 255.255.255.252
+!
+interface GigabitEthernet0/0/3.102
+ description CUST-B_FIREWALL_TRANSIT_VLAN102
+ encapsulation dot1Q 102
+ vrf forwarding CUST-B
+ ip address 10.102.1.2 255.255.255.252
+!
+interface GigabitEthernet0/0/4
+ description MANAGEMENT_NETWORK_HANDOFF
+ vrf forwarding MGMT
+ ip address 10.10.10.12 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/0/5
+ description BACKUP_MPLS_WAN_PROVIDER_eBGP_GLOBAL
+ ip address 198.18.0.2 255.255.255.252
+ no shutdown
+!
+interface Vlan100
+ description GLOBAL_INFRA_SERVICES_LAN_SECONDARY_SITE
+ ip address 10.100.1.1 255.255.255.0
+!
+interface Vlan201
+ description CUST-A_INTERNAL_SERVICE_SEGMENT_SECONDARY_SITE
+ vrf forwarding CUST-A
+ ip address 10.101.202.1 255.255.255.0
+!
+interface Vlan202
+ description CUST-B_INTERNAL_SERVICE_SEGMENT_SECONDARY_SITE
+ vrf forwarding CUST-B
+ ip address 10.102.203.1 255.255.255.0
+!
+ip route 10.255.0.1 255.255.255.255 172.16.12.1 name RTR01_LOOPBACK_REACHABILITY
+ip route vrf MGMT 0.0.0.0 0.0.0.0 10.10.10.1 name MGMT_DEFAULT_GATEWAY
+ip route vrf CUST-A 10.101.255.1 255.255.255.255 10.101.1.1 name RTR01_CUSTA_LOOPBACK
+ip route vrf CUST-B 10.102.255.1 255.255.255.255 10.102.1.1 name RTR01_CUSTB_LOOPBACK
+!
+ip prefix-list PL-DEFAULT-ONLY seq 5 permit 0.0.0.0/0
+ip prefix-list PL-BOGON-IN seq 10 permit 10.0.0.0/8 le 32
+ip prefix-list PL-BOGON-IN seq 20 permit 172.16.0.0/12 le 32
+ip prefix-list PL-BOGON-IN seq 30 permit 192.168.0.0/16 le 32
+ip prefix-list PL-GLOBAL-OUT seq 10 permit 10.100.1.0/24
+ip prefix-list PL-GLOBAL-OUT seq 20 permit 10.255.0.2/32
+ip prefix-list PL-RTR01-GLOBAL-IN seq 10 permit 10.100.0.0/24
+ip prefix-list PL-RTR01-GLOBAL-IN seq 20 permit 10.255.0.1/32
+ip prefix-list PL-CUST-A-OUT seq 10 permit 10.101.202.0/24
+ip prefix-list PL-CUST-A-OUT seq 20 permit 10.101.255.2/32
+ip prefix-list PL-CUST-A-IN seq 10 permit 10.101.201.0/24
+ip prefix-list PL-CUST-A-IN seq 20 permit 10.101.255.1/32
+ip prefix-list PL-CUST-B-OUT seq 10 permit 10.102.203.0/24
+ip prefix-list PL-CUST-B-OUT seq 20 permit 10.102.255.2/32
+ip prefix-list PL-CUST-B-IN seq 10 permit 10.102.202.0/24
+ip prefix-list PL-CUST-B-IN seq 20 permit 10.102.255.1/32
+ip prefix-list PL-FW-CUST-A-IN seq 10 permit 10.101.20.0/24
+ip prefix-list PL-FW-CUST-A-IN seq 20 permit 10.101.21.0/24
+ip prefix-list PL-FW-CUST-B-IN seq 10 permit 10.102.20.0/24
+ip prefix-list PL-FW-CUST-B-IN seq 20 permit 10.102.21.0/24
+!
+ip as-path access-list ASPATH-AWS permit ^64530(_[0-9]+)*$
+ip as-path access-list ASPATH-AZURE permit ^64540(_[0-9]+)*$
+ip as-path access-list ASPATH-MPLS permit ^64550(_[0-9]+)*$
+!
+ip community-list standard CL-BLOCK-SCN1 permit 65500:1
+ip community-list standard CL-BLOCK-SCN1 permit 65500:2
+ip community-list standard CL-CLOUD-PREFERRED permit 65000:200
+ip community-list standard CL-GLOBAL-SITE2 permit 65000:201
+ip community-list standard CL-CUST-A-SITE2 permit 65000:202
+ip community-list standard CL-CUST-B-SITE2 permit 65000:203
+ip community-list standard CL-NO-EXPORT-TO-CLOUD permit 65000:998
+!
+route-map RM-RTR01-GLOBAL-IN deny 5
+ description DROP ROUTES MARKED NOT-FOR-CLOUD BY RTR01
+ match community CL-NO-EXPORT-TO-CLOUD
+!
+route-map RM-RTR01-GLOBAL-IN permit 10
+ description ACCEPT GLOBAL INFRA PREFIXES FROM RTR01 AND PREFER iBGP
+ match ip address prefix-list PL-RTR01-GLOBAL-IN
+ set local-preference 200
+ set community 65000:201 additive
+!
+route-map RM-RTR01-GLOBAL-IN deny 100
+ description DROP EVERYTHING ELSE FROM INTERNAL GLOBAL PEER
+!
+route-map RM-CLOUD-IN deny 5
+ description DROP RFC1918/BOGON PREFIXES FROM CLOUD EDGES
+ match ip address prefix-list PL-BOGON-IN
+!
+route-map RM-CLOUD-IN permit 10
+ description ACCEPT DEFAULT ROUTE FROM CLOUD EDGES WITH LOWER LOCAL_PREF
+ match ip address prefix-list PL-DEFAULT-ONLY
+ set local-preference 80
+ set community 65000:920 additive
+!
+route-map RM-AWS-IN permit 20
+ description ACCEPT AWS SPECIFIC ROUTES AND PREFER OVER AZURE
+ match as-path ASPATH-AWS
+ set local-preference 130
+ set community 65000:230 additive
+!
+route-map RM-AZURE-IN permit 20
+ description ACCEPT AZURE SPECIFIC ROUTES AS SECONDARY CLOUD PATH
+ match as-path ASPATH-AZURE
+ set local-preference 110
+ set community 65000:240 additive
+!
+route-map RM-MPLS-IN permit 20
+ description ACCEPT BACKUP MPLS ROUTES WITH LOWEST LOCAL_PREF
+ match as-path ASPATH-MPLS
+ set local-preference 70
+ set community 65000:250 additive
+!
+route-map RM-GLOBAL-OUT deny 10
+ description BLOCK SCN1 ROUTES FROM CLOUD EDGES
+ match community CL-BLOCK-SCN1
+!
+route-map RM-GLOBAL-OUT deny 15
+ description DO NOT EXPORT INTERNAL-ONLY ROUTES TO CLOUD
+ match community CL-NO-EXPORT-TO-CLOUD
+!
+route-map RM-GLOBAL-OUT permit 20
+ description PERMIT GLOBAL SECONDARY SITE PREFIXES
+ match ip address prefix-list PL-GLOBAL-OUT
+ set community 65000:200 65000:201 additive
+!
+route-map RM-RTR01-GLOBAL-OUT permit 10
+ description SEND GLOBAL SITE2 PREFIXES TO RTR01 WITH INTERNAL COMMUNITY
+ match ip address prefix-list PL-GLOBAL-OUT
+ set community 65000:201 65000:902 additive
+!
+route-map RM-CUST-A-IN permit 10
+ description ACCEPT CUST-A PREFIXES FROM RTR01
+ match ip address prefix-list PL-CUST-A-IN
+ set local-preference 200
+ set community 65000:101 additive
+!
+route-map RM-CUST-A-IN deny 100
+ description DROP UNEXPECTED CUST-A ROUTES
+!
+route-map RM-CUST-A-FW-IN permit 10
+ description ACCEPT CUSTOMER-A FIREWALL LAN PREFIXES FROM SITE2 FW
+ match ip address prefix-list PL-FW-CUST-A-IN
+ set local-preference 150
+ set community 65000:101 65101:20 additive
+!
+route-map RM-CUST-A-FW-IN deny 100
+ description DROP UNEXPECTED FIREWALL ROUTES IN CUST-A
+!
+route-map RM-CUST-A-OUT permit 10
+ description ADVERTISE CUST-A SITE2 PREFIXES
+ match ip address prefix-list PL-CUST-A-OUT
+ set community 65000:101 65000:202 additive
+!
+route-map RM-CUST-A-FW-OUT permit 10
+ description ADVERTISE ONLY CUST-A SITE2 SERVICE PREFIXES TO FIREWALL
+ match ip address prefix-list PL-CUST-A-OUT
+ set community 65000:101 additive
+!
+route-map RM-CUST-B-IN permit 10
+ description ACCEPT CUST-B PREFIXES FROM RTR01
+ match ip address prefix-list PL-CUST-B-IN
+ set local-preference 200
+ set community 65000:102 additive
+!
+route-map RM-CUST-B-IN deny 100
+ description DROP UNEXPECTED CUST-B ROUTES
+!
+route-map RM-CUST-B-FW-IN permit 10
+ description ACCEPT CUSTOMER-B FIREWALL LAN PREFIXES FROM SITE2 FW
+ match ip address prefix-list PL-FW-CUST-B-IN
+ set local-preference 150
+ set community 65000:102 65102:20 additive
+!
+route-map RM-CUST-B-FW-IN deny 100
+ description DROP UNEXPECTED FIREWALL ROUTES IN CUST-B
+!
+route-map RM-CUST-B-OUT permit 10
+ description ADVERTISE CUST-B SITE2 PREFIXES
+ match ip address prefix-list PL-CUST-B-OUT
+ set community 65000:102 65000:203 additive
+!
+route-map RM-CUST-B-FW-OUT permit 10
+ description ADVERTISE ONLY CUST-B SITE2 SERVICE PREFIXES TO FIREWALL
+ match ip address prefix-list PL-CUST-B-OUT
+ set community 65000:102 additive
+!
+router bgp 65000
+ bgp router-id 10.255.0.2
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ neighbor 10.255.0.1 remote-as 65000
+ neighbor 10.255.0.1 description iBGP_TO_iosxe-rtr01_GLOBAL_LOOPBACK
+ neighbor 10.255.0.1 update-source Loopback0
+ neighbor 192.0.2.1 remote-as 64530
+ neighbor 192.0.2.1 description eBGP_TO_AWS_DIRECT_CONNECT_PRIMARY
+ neighbor 192.0.2.5 remote-as 64540
+ neighbor 192.0.2.5 description eBGP_TO_AZURE_EXPRESSROUTE_PRIMARY
+ neighbor 198.18.0.1 remote-as 64550
+ neighbor 198.18.0.1 description eBGP_TO_BACKUP_MPLS_PROVIDER
+ !
+ address-family ipv4
+  network 10.100.1.0 mask 255.255.255.0
+  network 10.255.0.2 mask 255.255.255.255
+  neighbor 10.255.0.1 activate
+  neighbor 10.255.0.1 next-hop-self
+  neighbor 10.255.0.1 send-community both
+  neighbor 10.255.0.1 route-map RM-RTR01-GLOBAL-IN in
+  neighbor 10.255.0.1 route-map RM-RTR01-GLOBAL-OUT out
+  neighbor 192.0.2.1 activate
+  neighbor 192.0.2.1 send-community both
+  neighbor 192.0.2.1 route-map RM-CLOUD-IN in
+  neighbor 192.0.2.1 route-map RM-AWS-IN in
+  neighbor 192.0.2.1 route-map RM-GLOBAL-OUT out
+  neighbor 192.0.2.5 activate
+  neighbor 192.0.2.5 send-community both
+  neighbor 192.0.2.5 route-map RM-CLOUD-IN in
+  neighbor 192.0.2.5 route-map RM-AZURE-IN in
+  neighbor 192.0.2.5 route-map RM-GLOBAL-OUT out
+  neighbor 198.18.0.1 activate
+  neighbor 198.18.0.1 send-community both
+  neighbor 198.18.0.1 route-map RM-CLOUD-IN in
+  neighbor 198.18.0.1 route-map RM-MPLS-IN in
+  neighbor 198.18.0.1 route-map RM-GLOBAL-OUT out
+ exit-address-family
+ !
+ address-family ipv4 vrf CUST-A
+  network 10.101.202.0 mask 255.255.255.0
+  network 10.101.255.2 mask 255.255.255.255
+  neighbor 10.101.255.1 remote-as 65000
+  neighbor 10.101.255.1 description iBGP_TO_iosxe-rtr01_CUST-A_LOOPBACK
+  neighbor 10.101.255.1 update-source Loopback10
+  neighbor 10.101.255.1 activate
+  neighbor 10.101.255.1 next-hop-self
+  neighbor 10.101.255.1 send-community both
+  neighbor 10.101.255.1 route-map RM-CUST-A-IN in
+  neighbor 10.101.255.1 route-map RM-CUST-A-OUT out
+  neighbor 10.101.1.1 remote-as 65101
+  neighbor 10.101.1.1 description eBGP_TO_CUST-A_FIREWALL_PAIR_AT_RTR01_SIDE
+  neighbor 10.101.1.1 activate
+  neighbor 10.101.1.1 send-community both
+  neighbor 10.101.1.1 route-map RM-CUST-A-FW-IN in
+  neighbor 10.101.1.1 route-map RM-CUST-A-FW-OUT out
+ exit-address-family
+ !
+ address-family ipv4 vrf CUST-B
+  network 10.102.203.0 mask 255.255.255.0
+  network 10.102.255.2 mask 255.255.255.255
+  neighbor 10.102.255.1 remote-as 65000
+  neighbor 10.102.255.1 description iBGP_TO_iosxe-rtr01_CUST-B_LOOPBACK
+  neighbor 10.102.255.1 update-source Loopback20
+  neighbor 10.102.255.1 activate
+  neighbor 10.102.255.1 next-hop-self
+  neighbor 10.102.255.1 send-community both
+  neighbor 10.102.255.1 route-map RM-CUST-B-IN in
+  neighbor 10.102.255.1 route-map RM-CUST-B-OUT out
+  neighbor 10.102.1.1 remote-as 65102
+  neighbor 10.102.1.1 description eBGP_TO_CUST-B_FIREWALL_PAIR_AT_RTR01_SIDE
+  neighbor 10.102.1.1 activate
+  neighbor 10.102.1.1 send-community both
+  neighbor 10.102.1.1 route-map RM-CUST-B-FW-IN in
+  neighbor 10.102.1.1 route-map RM-CUST-B-FW-OUT out
+ exit-address-family
+!
+line vty 0 4
+ transport input ssh
+ login local
+!
+end
